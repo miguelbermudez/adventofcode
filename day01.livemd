@@ -1,0 +1,72 @@
+# Advent of Code 2021 / D01
+
+## Sonary Sweep Part 1
+
+```elixir
+testReport = [199, 200, 208, 210, 200, 207, 240, 269, 260, 263]
+```
+
+```elixir
+report =
+  "inputs/day01.txt"
+  |> File.read!()
+  |> String.split(~r/\n/, trim: true)
+  |> Enum.map(&String.to_integer/1)
+```
+
+I feel like this can be done with `Enum.reduce`instead of just counting the "peaks".
+
+Lets see how this solutions plays out.
+
+```elixir
+defmodule Sonar do
+  def depthReport([]), do: []
+  def depthReport([_head | []]), do: []
+
+  def depthReport([head | tail]) do
+    # IO.puts("head #{inspect(head)} \t tail #{inspect(tail)}")
+
+    [if(head < hd(tail), do: :up, else: :down) | depthReport(tail)]
+  end
+
+  def is_up(a) when is_atom(a), do: a == :up
+end
+
+testReport
+|> Sonar.depthReport()
+|> Enum.filter(&Sonar.is_up/1)
+# should be 7
+|> length
+```
+
+Now for the actual data:
+
+```elixir
+report
+|> Sonar.depthReport()
+|> Enum.filter(&Sonar.is_up/1)
+# should be 1292
+|> length
+```
+
+`1292` is right!
+
+## Sonary Sweep Part 2
+
+```elixir
+testReport
+|> Enum.chunk_every(3, 1, :discard)
+|> Enum.map(&Enum.sum/1)
+|> Sonar.depthReport()
+|> Enum.filter(&Sonar.is_up/1)
+|> length
+```
+
+```elixir
+report
+|> Enum.chunk_every(3, 1, :discard)
+|> Enum.map(&Enum.sum/1)
+|> Sonar.depthReport()
+|> Enum.filter(&Sonar.is_up/1)
+|> length
+```

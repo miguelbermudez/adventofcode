@@ -1,0 +1,146 @@
+# Advent of Code 2021 / D02
+
+## Dive! Part 1
+
+```elixir
+course =
+  "inputs/day02.txt"
+  |> File.read!()
+  |> String.splitter("\n", trim: true)
+  |> Enum.map(&String.split/1)
+  |> Enum.map(fn [dir, v] -> [String.to_atom(dir), String.to_integer(v)] end)
+```
+
+```elixir
+testCourse =
+  """
+  forward 5
+  down 5
+  forward 8
+  up 3
+  down 8
+  forward 2
+  """
+  |> String.splitter("\n", trim: true)
+  |> Enum.map(&String.split/1)
+  |> Enum.map(fn [dir, v] -> [String.to_atom(dir), String.to_integer(v)] end)
+```
+
+```elixir
+testCourse
+|> Enum.group_by(fn [dir, _] -> dir end, fn [_, v] -> v end)
+|> Enum.map(fn {dir, vs} -> [dir, Enum.sum(vs)] end)
+|> Enum.reduce(%{horizontal: 0, depth: 0}, fn [dir, v], acc ->
+  case dir do
+    :forward -> Map.update!(acc, :horizontal, &(&1 + v))
+    :down -> Map.update!(acc, :depth, &(&1 + v))
+    :up -> Map.update!(acc, :depth, &(&1 - v))
+  end
+end)
+|> then(fn %{depth: x, horizontal: y} -> x * y end)
+```
+
+```elixir
+course
+|> Enum.group_by(fn [dir, _] -> dir end, fn [_, v] -> v end)
+|> Enum.map(fn {dir, vs} -> [dir, Enum.sum(vs)] end)
+|> Enum.reduce(%{horizontal: 0, depth: 0}, fn [dir, v], acc ->
+  case dir do
+    :forward -> Map.update!(acc, :horizontal, &(&1 + v))
+    :down -> Map.update!(acc, :depth, &(&1 + v))
+    :up -> Map.update!(acc, :depth, &(&1 - v))
+  end
+end)
+# should be 1947824
+|> then(fn %{depth: x, horizontal: y} -> x * y end)
+```
+
+## Dive! Part 2
+
+```elixir
+testCourse
+|> Enum.reduce(%{horizontal: 0, depth: 0, aim: 0}, fn [dir, v], acc ->
+  IO.inspect([acc, dir])
+
+  case dir do
+    :forward ->
+      acc
+      |> Map.update!(:horizontal, &(&1 + v))
+      |> Map.update!(:depth, &(&1 + acc.aim * v))
+
+    :down ->
+      Map.update!(acc, :aim, &(&1 + v))
+
+    :up ->
+      Map.update!(acc, :aim, &(&1 - v))
+  end
+end)
+|> IO.inspect()
+# should be 900
+|> then(fn %{depth: x, horizontal: y, aim: _z} -> x * y end)
+```
+
+```elixir
+course
+|> Enum.reduce(%{horizontal: 0, depth: 0, aim: 0}, fn [dir, v], acc ->
+  case dir do
+    :forward ->
+      acc
+      |> Map.update!(:horizontal, &(&1 + v))
+      |> Map.update!(:depth, &(&1 + acc.aim * v))
+
+    :down ->
+      Map.update!(acc, :aim, &(&1 + v))
+
+    :up ->
+      Map.update!(acc, :aim, &(&1 - v))
+  end
+end)
+|> IO.inspect()
+# should be 1813062561
+|> then(fn %{depth: x, horizontal: y, aim: _z} -> x * y end)
+```
+
+## From Community
+
+This is nice because it uses pattern matching directly on the string instead of having to do `String.split/2`.
+
+```elixir
+stream =
+  File.stream!("inputs/day02.txt")
+  |> Stream.map(fn input ->
+    case String.trim(input) do
+      "forward " <> n -> {:forward, String.to_integer(n)}
+      "up " <> n -> {:up, String.to_integer(n)}
+      "down " <> n -> {:down, String.to_integer(n)}
+    end
+  end)
+```
+
+[source](https://elixirforum.com/t/advent-of-code-2021-day-2/44205/24?u=miguelbermudez)
+
+Again, directly pattern matching to `{h ,d}`. I believe this is more **idomatic elixir**.
+
+```elixir
+# Part 1
+{h, d} =
+  stream
+  |> Enum.reduce({0, 0}, fn
+    {:forward, n}, {h, d} -> {h + n, d}
+    {:up, n}, {h, d} -> {h, d - n}
+    {:down, n}, {h, d} -> {h, d + n}
+  end)
+
+h * d
+
+# Part 2
+{h, d, _} =
+  stream
+  |> Enum.reduce({0, 0, 0}, fn
+    {:forward, n}, {h, d, a} -> {h + n, d + a * n, a}
+    {:up, n}, {h, d, a} -> {h, d, a - n}
+    {:down, n}, {h, d, a} -> {h, d, a + n}
+  end)
+
+h * d
+```

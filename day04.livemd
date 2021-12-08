@@ -1,0 +1,290 @@
+# Advent of Code 2021 / D04
+
+## Giant Squid - Setup
+
+```elixir
+input =
+  "inputs/day04.txt"
+  |> File.read!()
+```
+
+```elixir
+testInput = """
+7,4,9,5,11,17,23,2,0,14,21,24,10,16,13,6,15,25,12,22,18,20,8,19,3,26,1
+
+22 13 17 11  0
+ 8  2 23  4 24
+21  9 14 16  7
+ 6 10  3 18  5
+ 1 12 20 15 19
+
+ 3 15  0  2 22
+ 9 18 13 17  5
+19  8  7 25 23
+20 11 10 24  4
+14 21 16 12  6
+
+14 21 17 24  4
+10 16 15  9 19
+18  8 23 26 20
+22 11 13  6  5
+ 2  0 12  3  7
+"""
+
+defmodule Bingo do
+  def draw_numbers(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> hd
+    |> String.split(",")
+    |> Enum.map(&String.to_integer(&1, 10))
+  end
+
+  def boards(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> then(fn [_hd | tl] -> tl end)
+    |> Enum.map(&String.split(&1, ~r{\s+}))
+    |> Enum.map(fn n ->
+      Enum.filter(n, &(String.length(&1) > 0))
+      |> Enum.map(fn n -> {String.to_integer(n, 10), 0} end)
+    end)
+    |> Enum.chunk_every(5)
+  end
+
+  def mark_board(board, pick) do
+    board
+    |> Enum.map(fn row ->
+      row
+      |> Enum.map(fn {number, mark} ->
+        if number == pick, do: {number, 1}, else: {number, mark}
+      end)
+    end)
+  end
+
+  defp axis_sum(axis) do
+    Enum.reduce(axis, 0, fn {_number, mark}, acc -> if mark == 1, do: acc + 1, else: acc end)
+  end
+
+  defp axis_sum(axis, value_check) do
+    Enum.reduce(axis, 0, fn {number, mark}, acc ->
+      if mark == value_check, do: acc + number, else: acc
+    end)
+  end
+
+  def check_winner(board) do
+    row_won? =
+      board
+      |> Enum.map(fn row ->
+        row
+        |> Enum.reduce(0, fn {_number, mark}, acc -> if mark == 1, do: acc + 1, else: acc end)
+      end)
+      |> Enum.any?(fn x -> x == 5 end)
+
+    col_won? =
+      Enum.any?(0..4, fn col ->
+        column = Enum.map(0..4, fn i -> board |> Enum.at(i) |> Enum.at(col) end)
+        axis_sum(column) == 5
+      end)
+
+    # IO.inspect({row_won?, col_won?},  label: "check row and colum win")
+    Enum.any?([row_won?, col_won?])
+  end
+
+  def sum_unmarked(board) do
+    Enum.reduce(board, 0, fn row, acc ->
+      acc + axis_sum(row, 0)
+    end)
+  end
+end
+```
+
+## Part 1
+
+For test input.
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+# mark boards for number 
+# IO.inspect(testInput |> Bingo.boards |> hd, label: "Boards")
+boards = Bingo.boards(testInput)
+draw_numbers = Bingo.draw_numbers(testInput)
+
+{board, number} =
+  Enum.reduce_while(draw_numbers, boards, fn number, boards ->
+    boards = Enum.map(boards, fn b -> Bingo.mark_board(b, number) end)
+
+    if board = Enum.find(boards, &Bingo.check_winner(&1)) do
+      {:halt, {board, number}}
+    else
+      {:cont, boards}
+    end
+  end)
+
+IO.inspect({board, number}, label: "winning board & number")
+Bingo.sum_unmarked(board) * number
+```
+
+For realz tho...
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+boards = Bingo.boards(input)
+draw_numbers = Bingo.draw_numbers(input)
+
+{board, number} =
+  Enum.reduce_while(draw_numbers, boards, fn number, boards ->
+    boards = Enum.map(boards, fn b -> Bingo.mark_board(b, number) end)
+
+    if board = Enum.find(boards, &Bingo.check_winner(&1)) do
+      {:halt, {board, number}}
+    else
+      {:cont, boards}
+    end
+  end)
+
+IO.inspect({board, number}, label: "winning board & number")
+# should be25023
+Bingo.sum_unmarked(board) * number
+```
+
+## Part 2
+
+```elixir
+boards = Bingo.boards(input)
+draw_numbers = Bingo.draw_numbers(input)
+
+{board, number} =
+  Enum.reduce_while(draw_numbers, boards, fn number, boards ->
+    # IO.inspect(number, label: "\nPick")
+    post_marked_boards = Enum.map(boards, fn b -> Bingo.mark_board(b, number) end)
+
+    boards =
+      post_marked_boards
+      # |> IO.inspect(label: "predrop")
+      |> Enum.reject(&Bingo.check_winner(&1))
+
+    # IO.inspect(boards, label: "postdrop")
+    case boards do
+      [] -> {:halt, {post_marked_boards |> hd, number}}
+      _ -> {:cont, boards}
+    end
+  end)
+
+IO.inspect({board, number}, label: "last winning board & number")
+# should be 1924 for test input, 2634 for real input
+Bingo.sum_unmarked(board) * number
+```
+
+## Learnings
+
+The data structure of the boards is important. I used a tuple, e.g. `{number, mark}` for each "square". José's solution used this data structure:
+
+```elixir
+[
+  %Board{
+    grid:
+      {{false, false, false, false, false}, {false, false, false, false, false},
+       {false, false, false, false, false}, {false, false, false, false, false},
+       {false, false, false, false, false}},
+    numbers: %{
+      0 => {0, 4},
+      1 => {4, 0},
+      2 => {1, 1},
+      3 => {3, 2},
+      4 => {1, 3},
+      5 => {3, 4},
+      6 => {3, 0},
+      7 => {2, 4},
+      8 => {1, 0},
+      9 => {2, 1},
+      10 => {3, 1},
+      11 => {0, 3},
+      12 => {4, 1},
+      13 => {0, 1},
+      14 => {2, 2},
+      15 => {4, 3},
+      16 => {2, 3},
+      17 => {0, 2},
+      18 => {3, 3},
+      19 => {4, 4},
+      20 => {4, 2},
+      21 => {2, 0},
+      22 => {0, 0},
+      23 => {1, 2},
+      24 => {1, 4}
+    }
+  },
+  %Board{
+    grid:
+      {{false, false, false, false, false}, {false, false, false, false, false},
+       {false, false, false, false, false}, {false, false, false, false, false},
+       {false, false, false, false, false}},
+    numbers: %{
+      0 => {0, 2},
+      2 => {0, 3},
+      3 => {0, 0},
+      4 => {3, 4},
+      5 => {1, 4},
+      6 => {4, 4},
+      7 => {2, 2},
+      8 => {2, 1},
+      9 => {1, 0},
+      10 => {3, 2},
+      11 => {3, 1},
+      12 => {4, 3},
+      13 => {1, 2},
+      14 => {4, 0},
+      15 => {0, 1},
+      16 => {4, 2},
+      17 => {1, 3},
+      18 => {1, 1},
+      19 => {2, 0},
+      20 => {3, 0},
+      21 => {4, 1},
+      22 => {0, 4},
+      23 => {2, 4},
+      24 => {3, 3},
+      25 => {2, 3}
+    }
+  },
+  %Board{
+    grid:
+      {{false, false, false, false, false}, {false, false, false, false, false},
+       {false, false, false, false, false}, {false, false, false, false, false},
+       {false, false, false, false, false}},
+    numbers: %{
+      0 => {4, 1},
+      2 => {4, 0},
+      3 => {4, 3},
+      4 => {0, 4},
+      5 => {3, 4},
+      6 => {3, 3},
+      7 => {4, 4},
+      8 => {2, 1},
+      9 => {1, 3},
+      10 => {1, 0},
+      11 => {3, 1},
+      12 => {4, 2},
+      13 => {3, 2},
+      14 => {0, 0},
+      15 => {1, 2},
+      16 => {1, 1},
+      17 => {0, 2},
+      18 => {2, 0},
+      19 => {1, 4},
+      20 => {2, 4},
+      21 => {0, 1},
+      22 => {3, 0},
+      23 => {2, 2},
+      24 => {0, 3},
+      26 => {2, 3}
+    }
+  }
+]
+```
+
+What's intersting is how he denormalized the bingo boards and separated the "square's value" from the position of the numbers on the board.
+I kept the structure and struggled with finding the right elixir functions to help rangled the data structures.

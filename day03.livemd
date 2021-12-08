@@ -1,3 +1,5 @@
+<!-- vim: set syntax=markdown: -->
+
 # Advent of Code 2021 / D03
 
 ## Binary Diagnostic - Setup

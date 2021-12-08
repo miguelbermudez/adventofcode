@@ -1,0 +1,205 @@
+# Advent of Code 2021 / D03
+
+## Binary Diagnostic - Setup
+
+```elixir
+use Bitwise
+```
+
+```elixir
+testInput =
+  """
+  00100
+  11110
+  10110
+  10111
+  10101
+  01111
+  00111
+  11100
+  10000
+  11001
+  00010
+  01010
+  """
+  |> String.split("\n", trim: true)
+```
+
+```elixir
+report =
+  "inputs/day03.txt"
+  |> File.read!()
+  |> String.split("\n", trim: true)
+```
+
+## Binary Diagnostic - Part 1
+
+```elixir
+defmodule Diagnostic do
+  def find_common(column) do
+    column
+    |> Enum.group_by(& &1)
+    |> Enum.reduce(%{curr: "0", length: 0}, fn {k, v}, acc ->
+      cond do
+        length(v) >= acc.length -> %{acc | curr: k, length: length(v)}
+        length(v) == 1 && hd(v) == "1" -> %{acc | curr: "1", length: 1}
+        :else -> acc
+      end
+
+      # if length(v) > acc.length, do: %{acc | curr: k, length: length(v)}, else: acc
+    end)
+    |> Map.get(:curr)
+  end
+
+  defp create_bit_mask(amnt) do
+    # my old way
+    # list = for _n <- 0..(amnt - 1), into: [], do: "1"
+
+    # list
+    # |> Enum.join()
+    # |> String.to_integer(2)
+
+    # from community
+    Integer.pow(2, amnt) - 1
+  end
+
+  def get_column(input, pos) do
+    Enum.map(input, fn num -> binary_part(num, pos, 1) end)
+  end
+
+  def gamma_rate(input) do
+    bit_as_str =
+      for n <- 0..(String.length(hd(input)) - 1) do
+        get_column(input, n)
+        |> find_common
+      end
+
+    bit_as_str
+    |> Enum.join()
+    |> then(fn x -> %{binary: x, int: String.to_integer(x, 2), line_len: String.length(x)} end)
+  end
+
+  def epsilon_rate(gamma, line_len) do
+    rate = bxor(gamma, create_bit_mask(line_len))
+    %{binary: Integer.to_string(rate, 2), int: rate}
+  end
+
+  def power_consumption(report) do
+    gamma = gamma_rate(report)
+    epsilon = epsilon_rate(gamma.int, gamma.line_len)
+    %{gamma: gamma.int, epsilon_rate: epsilon.int, power_consumption: gamma.int * epsilon.int}
+  end
+
+  # from community 
+  def find_common_simple(rows, pos) do
+    zero_count = Enum.count(rows, &(binary_part(&1, pos, 1) == "0"))
+    one_count = length(rows) - zero_count
+    if one_count >= zero_count, do: "1", else: "0"
+  end
+
+  # end from community
+
+  def o2_rating([n], _pos), do: %{binary: n, int: String.to_integer(n, 2)}
+
+  def o2_rating(rows, pos) when length(rows) > 1 do
+    # most_common =
+    #   rows
+    #   |> get_column(pos)
+    #   |> find_common
+    most_common = find_common_simple(rows, pos)
+    numbers = Enum.filter(rows, fn n -> binary_part(n, pos, 1) == most_common end)
+    # IO.inspect(%{pos: pos+1, rows: rows, most_common: most_common})
+    o2_rating(numbers, pos + 1)
+  end
+
+  def co2_rating(rows, pos) when length(rows) > 1 do
+    # IO.puts("-----\nStep #{pos} \n-----")
+    least_common =
+      rows
+      |> get_column(pos)
+      |> find_common
+      |> String.to_integer()
+      |> bxor(0b1)
+      |> Integer.to_string()
+
+    numbers = Enum.filter(rows, fn n -> binary_part(n, pos, 1) == least_common end)
+    # IO.inspect(%{pos: pos + 1, rows: rows, least_common: least_common})
+    co2_rating(numbers, pos + 1)
+  end
+
+  def co2_rating([n], _pos), do: %{binary: n, int: String.to_integer(n, 2)}
+
+  def life_support_rating(report) do
+    o2 = o2_rating(report, 0)
+    co2 = co2_rating(report, 0)
+    o2.int * co2.int
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+# should be 198
+Diagnostic.power_consumption(testInput)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+# should be 3309596
+Diagnostic.power_consumption(report).power_consumption
+```
+
+## Binary Diagnostic - Part 2
+
+### O2 Rating
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Diagnostic.o2_rating(testInput, 0)
+```
+
+```elixir
+Diagnostic.o2_rating(report, 0)
+```
+
+### CO2 Rating
+
+```elixir
+Diagnostic.co2_rating(testInput, 0)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Diagnostic.co2_rating(report, 0)
+```
+
+### Life Support Rating
+
+```elixir
+# should be 230
+Diagnostic.life_support_rating(testInput)
+```
+
+```elixir
+# should be 2981085
+Diagnostic.life_support_rating(report)
+```
+
+## Learnings
+
+I kept using `"0"` and `"1"`. I should of just used the code points, aka `"0" => 48`
+
+```elixir
+"00100" |> String.to_charlist() |> List.to_tuple()
+```
+
+## Community
+
+```elixir
+testInput
+|> Enum.map(&(&1 |> String.to_charlist() |> List.to_tuple()))
+```
